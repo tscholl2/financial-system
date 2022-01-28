@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Finances</title>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="https://unpkg.com/98.css" />
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #c0c0c0;
+            font-family: monospace;
+            display: grid;
+            gap: 20px;
+            grid-template-columns: 1fr 3fr;
+            grid-template-areas:
+                "header  header"
+                "sidebar content"
+                "sidebar content"
+                "footer  footer";
+        }
+
+        nav {
+            grid-area: header;
+        }
+
+        main {
+            grid-area: content;
+        }
+
+        main>ul {
+            display: flex;
+            justify-content: space-around;
+            flex-direction: row;
+            flex-wrap: wrap;
+        }
+
+        main>ul>li {
+            list-style: none;
+            margin: 10px;
+        }
+
+        aside {
+            grid-area: sidebar;
+            padding-left: 20px;
+            min-width: 250px;
+        }
+
+        aside>ul {
+            min-height: 90vh;
+        }
+
+        footer {
+            grid-area: footer;
+        }
+    </style>
+    <script>
+        var Controller = function () { return function (t) { var n = this; this.p = [], this.l = [], this.getState = function () { return n.s }, this.addPlugin = function (t) { n.p.push(t) }, this.removePlugin = function (t) { n.p = n.p.filter(function (n) { return n !== t }) }, this.addListener = function (t) { n.l.push(t) }, this.removeListener = function (t) { n.l = n.l.filter(function (n) { return n !== t }) }, this.dispatch = function (t) { n.p.forEach(function (n) { return t = n(t) }); var i = t(n.s); n.s !== i && (n.s = i, n.l.forEach(function (t) { return t(n.s, n.dispatch) })) }, this.s = t } }();
+    </script>
+    <script type="text/javascript" src="https://unpkg.com/papaparse@5.3.1/papaparse.min.js"></script>
+    <script type="module">
+        import { h, text, patch } from "https://unpkg.com/superfine@8.2.0/index.js"
+        /*
+        async function loadAverages() {
+            const data = await loadData();
+            console.log(data);
+
+            const start_date = new Date(Math.min.apply(null, data.items.map(i => i.date)));
+            const end_date = new Date();
+            const delta = end_date.getTime() - start_date.getTime();
+            let h1;
+            h1 = document.createElement("h1");
+            h1.textContent = displayTimeSince(start_date, end_date);
+            document.body.appendChild(h1);
+            h1 = document.createElement("h1");
+            h1.textContent = `$/day: ${(total / (delta / (24 * 60 * 60 * 1000))).toFixed(2)}`;
+            document.body.appendChild(h1);
+            h1 = document.createElement("h1");
+            h1.textContent = `$/month: ${(total / (delta / (30 * 24 * 60 * 60 * 1000))).toFixed(2)}`;
+            document.body.appendChild(h1);
+            for (let c of data.categories) {
+                h1 = document.createElement("h1");
+                h1.textContent = `$/month in ${c}: ${(total_by_category[c] / (delta / (30 * 24 * 60 * 60 * 1000))).toFixed(2)}`;
+                document.body.appendChild(h1);
+            }
+            for (let c of data.locations) {
+                h1 = document.createElement("h1");
+                h1.textContent = `$/month at ${c}: ${(total_by_location[c] / (delta / (30 * 24 * 60 * 60 * 1000))).toFixed(2)}`;
+                document.body.appendChild(h1);
+            }
+        }
+        */
+        window._data = undefined;
+        window._csv = undefined;
+
+        async function loadCSV() {
+            if (window._csv) {
+                return window._csv
+            }
+            const resp = await fetch("finances.csv");
+            if (resp.status != 200) {
+                throw new Error(`Unable to download data: ${resp.status}:${resp.statusText}`);
+            }
+            window._csv = await resp.text();
+            return window._csv;
+        }
+
+        async function loadData() {
+            const data = Papa.parse(await loadCSV());
+            if (data.errors.length > 0) {
+                throw new Error(`Unable to parse data: ${data.errors}`);
+            }
+            const headers = data.data[0];
+            const items = [];
+            for (let values of data.data.slice(1)) {
+                const item = {};
+                for (let i = 0; i < values.length; i++) {
+                    switch (headers[i]) {
+                        case "date":
+                            item[headers[i]] = new Date(values[i]);
+                            break;
+                        case "cost":
+                            item[headers[i]] = parseFloat(values[i].replace(/[\$\,]/g, ""));
+                            if (isNaN(item.cost)) {
+                                throw new Error(`Unable to parse cost: ${values}`);
+                            }
+                            break;
+                        default:
+                            item[headers[i]] = values[i];
+                            break;
+                    }
+                }
+                items.push(item);
+            }
+            const categories = Array.from(new Set(items.map(i => i["category"])));
+            const locations = Array.from(new Set(items.map(i => i["location"])));
+            const total_by_category = {};
+            for (let c of categories) {
+                total_by_category[c] = 0;
+            }
+            const total_by_location = {};
+            for (let c of locations) {
+                total_by_location[c] = 0;
+            }
+            let total = 0;
+            for (let i of items) {
+                const a = i.category == "income" ? Math.abs(i.cost) : -Math.abs(i.cost);
+                total_by_category[i.category] += a;
+                total_by_location[i.location] += a;
+                total += a;
+            }
+            window._data = {
+                items,
+                categories,
+                locations,
+                total_by_category,
+                total_by_location,
+                total,
+                start: new Date(Math.min.apply(null, items.map(i => i.date))),
+                end: new Date(),
+            };
+            return window._data;
+        }
+
+        function daysInMonth(month, year) {
+            return new Date(year, month, 0).getDate();
+        }
+
+        function displayTimeSince(A, B) {
+            const Ay = A.getFullYear();
+            const By = B.getFullYear();
+            const Am = A.getMonth();
+            const Bm = B.getMonth();
+            const As = A.getTime();
+            const Bs = B.getTime();
+            let M = 12 * (By - Ay) + (Bm - Am);
+            const Y = Math.floor(M / 12);
+            M = M % 12;
+            return `Elapsed: ${Y} years, ${M} months, ${B.getDate() - A.getDate()} days`
+        }
+
+        function App(dispatch) {
+            return function (state) {
+                return h("main", {}, [
+                    h("h1", {}, text(state)),
+                    h("button", { onclick: () => setState(state - 1) }, text("-")),
+                    h("button", { onclick: () => setState(state + 1) }, text("+")),
+                ])
+            }
+        }
+
+        async function start() {
+            const c = new Controller({});
+            const app = App(c.dispatch);
+            c.addListener(s => patch(document.getElementById("app"), app(s)));
+            c.dispatch(s => ({ ...s, intializing: true }));
+            const data = await loadData();
+            c.dispatch(s => ({ ...s, intializing: false, ...data }));
+        }
+        start();
+    </script>
+</head>
+
+<body>
+    <div id="app">
+        <div></div>
+        <!--TODO-->
+    </div>
+    <!--
+        <head>
+            <nav class="title-bar">
+                <div class="title-bar-text">Fin$</div>
+            </nav>
+        </head>
+        <aside>
+            <ul class="tree-view">
+                <li>Sections</li>
+                <li>
+                    <details>
+                        <summary>Categories</summary>
+                        <ul>
+                            <li>???</li>
+                        </ul>
+                    </details>
+                </li>
+                <li>
+                    <details>
+                        <summary>Locations</summary>
+                        <ul>
+                            <li>???</li>
+                        </ul>
+                    </details>
+                </li>
+            </ul>
+        </aside>
+        <main>
+            <ul id="cards">
+                <li>
+                    <div class="window" style="width: 320px">
+                        <div class="title-bar">
+                            <div class="title-bar-text">Name of Category</div>
+                        </div>
+                        <div class="window-body">
+                            ??? $ / ???
+                            <img height="100px" width="100px" alt="graph" src="//via.placeholder.com/100x100" />
+                        </div>
+                    </div>
+                </li>
+                <li>
+                    <div class="window" style="width: 320px">
+                        <div class="title-bar">
+                            <div class="title-bar-text">Name of Category</div>
+                        </div>
+                        <div class="window-body">
+                            ??? $ / ???
+                            <img height="100px" width="100px" alt="graph" src="//via.placeholder.com/100x100" />
+                        </div>
+                    </div>
+                </li>
+                <li>
+                    <div class="window" style="width: 320px">
+                        <div class="title-bar">
+                            <div class="title-bar-text">Name of Category</div>
+                        </div>
+                        <div class="window-body">
+                            ??? $ / ???
+                            <img height="100px" width="100px" alt="graph" src="//via.placeholder.com/100x100" />
+                        </div>
+                    </div>
+                </li>
+            </ul>
+        </main>
+        <footer>Footer</footer>
+    -->
+
+</body>
+
+</html>
