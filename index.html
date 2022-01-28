@@ -98,7 +98,7 @@
             if (window._csv) {
                 return window._csv
             }
-            const resp = await fetch("finances.csv");
+            const resp = await fetch("sample.csv");
             if (resp.status != 200) {
                 throw new Error(`Unable to download data: ${resp.status}:${resp.statusText}`);
             }
