@@ -73,22 +73,15 @@
         import Fuse from "https://cdn.jsdelivr.net/npm/fuse.js@6.5.3/dist/fuse.esm.js";
 
         window._data = undefined;
-        window._csv = undefined;
 
-        async function loadCSV() {
-            if (window._csv) {
-                return window._csv
-            }
+        async function loadData() {
             const resp = await fetch("sample.csv");
             if (resp.status != 200) {
                 throw new Error(`Unable to download data: ${resp.status}:${resp.statusText}`);
             }
-            window._csv = await resp.text();
-            return window._csv;
-        }
-
-        async function loadData() {
-            const data = Papa.parse(await loadCSV());
+            const csv = window._csv = await resp.text();
+            // parse
+            const data = Papa.parse(csv);
             if (data.errors.length > 0) {
                 throw new Error(`Unable to parse data: ${data.errors}`);
             }
@@ -114,42 +107,40 @@
                 }
                 items.push(item);
             }
-            // TODO: these should all be memoized selectors
-            const categories = Array.from(new Set(items.map(i => i["category"].toLowerCase())));
-            const locations = Array.from(new Set(items.map(i => i["location"].toLowerCase())));
-            const things = Array.from(new Set(items.map(i => i["item"].toLowerCase())));
-            const total_by_category = {};
-            for (let c of categories) {
-                total_by_category[c] = 0;
-            }
-            const total_by_location = {};
-            for (let c of locations) {
-                total_by_location[c] = 0;
-            }
-            let total = 0;
-            for (let i of items) {
-                const a = i.category == "income" ? Math.abs(i.cost) : -Math.abs(i.cost);
-                total_by_category[i.category] += a;
-                total_by_location[i.location] += a;
-                total += a;
-            }
-            const start = new Date(Math.min.apply(null, items.map(i => i.date)));
-            const end = new Date();
-            const delta = end.getTime() - start.getTime();
-            window._data = {
-                items,
-                categories,
-                locations,
-                things,
-                total_by_category,
-                total_by_location,
-                total,
-                start,
-                end,
-                delta,
-            };
-            return window._data;
+            return window._data = { items };
         }
+
+        const selectCategories = memoize((items) =>
+            Array.from(new Set(items.map(i => i["category"].toLowerCase()))));
+
+        const selectLocations = memoize((items) =>
+            Array.from(new Set(items.map(i => i["location"].toLowerCase()))));
+
+        const selectDescriptions = memoize((items) =>
+            Array.from(new Set(items.map(i => i["item"].toLowerCase()))));
+
+        const selectTotalsByCategory = memoize((items) =>
+            items.reduce((p, n) => {
+                p[n.category] = (p[n.category] || 0) + getCost(n);
+                return p;
+            }, {}));
+
+        const selectTotalsByLocation = memoize((items) =>
+            items.reduce((p, n) => {
+                p[n.category] = (p[n.category] || 0) + getCost(n);
+                return p;
+            }, {}));
+
+        const selectTotalsByDescription = memoize((items) =>
+            items.reduce((p, n) => {
+                p[n.item] = (p[n.item] || 0) + getCost(n);
+                return p;
+            }, {}));
+
+        const selectTotal = memoize((items) => items.reduce((p, n) => p + getCost(n), 0));
+
+        const selectStartDate = memoize((items) => new Date(Math.min.apply(null, items.map(i => i.date))));
+
 
         function daysInMonth(month, year) {
             return new Date(year, month, 0).getDate();
@@ -204,8 +195,6 @@
             return -Math.abs(item.cost);
         }
 
-
-
         const DailyChart = memoize((items) => {
             items = [...items].sort((a, b) => a.date - b.date);
             if (items.length === 0) {
@@ -235,16 +224,62 @@
                     }]
                 }
             }
-            const ref = h("canvas", {});
-            window.requestAnimationFrame(() => {
-                console.log("making a new chart 2");
-                new Chart(ref.node, config);
-            });
-            return ref;
+            return ChartComponent(config);
         });
 
+        function ChartComponent(config) {
+            const vnode = h("canvas", {});
+            window.requestAnimationFrame(() => {
+                console.log("updating chart!", vnode.node)
+                if (vnode?.node == null) {
+                    console.error(`expected node, got nothing: ${vnode}`);
+                }
+                const oldChart = vnode.node._chart;
+                if (oldChart) {
+                    oldChart.data = { ...oldChart.data, ...config };
+                    oldChart.update;
+                } else {
+                    vnode.node._chart = new Chart(vnode.node, config);
+                }
+            });
+            return vnode;
+        }
 
-        const MonthlyChart = memoize((items) => {
+
+        function MonthlyCosts(items) {
+            const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+            const getMonthYear = (d) => `${d.getMonth()}/${d.getFullYear()}`;
+            items = [...items].sort((a, b) => a.date - b.date);
+            if (items.length === 0) {
+                return h("span", {}, text("No items :("));
+            }
+            const labels = [];
+            const data = items.reduce((p, n, i) => {
+                const l = items[Math.max(i - 1, 0)];
+                if (getMonthYear(n.date) === getMonthYear(l.date)) {
+                    p[p.length - 1] += getCost(n);
+                } else {
+                    p.push(getCost(n));
+                    labels.push(`${months[n.date.getMonth()]} ${n.date.getFullYear()}`);
+                }
+                return p;
+            }, [items[0].cost]).slice(1)
+            const config = {
+                type: "line",
+                data: {
+                    labels,
+                    datasets: [{
+                        label: "Monthly Totals",
+                        backgroundColor: 'rgb(255, 99, 132)',
+                        borderColor: 'rgb(255, 99, 132)',
+                        data,
+                    }]
+                }
+            }
+            return ChartComponent(config);
+        }
+
+        const MonthlyTotals = memoize((items) => {
             const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
             const getMonthYear = (d) => `${d.getMonth()}/${d.getFullYear()}`;
             items = [...items].sort((a, b) => a.date - b.date);
@@ -275,39 +310,35 @@
                     }]
                 }
             }
-            const ref = h("canvas", {});
-            window.requestAnimationFrame(() => {
-                console.log("making a new chart 2");
-                new Chart(ref.node, config);
-            });
-            return ref;
+            return ChartComponent(config);
         });
 
         function Content(dispatch) {
-            const filterItems = memoize((items = [], search = "") =>
-                // TODO fuse
-                items.filter(i => i.item.contains(search))
-            );
+            // TODO fuse
+            const selectItems = memoize((items = [], search = "") => items);
             return function (state) {
+                const { page = "averages", search = "", items: allItems } = state;
                 if (state.search === "blank")
                     return h("main", {});
-                const { page = "averages", total, delta, items = [] } = state;
+                const items = selectItems(allItems, search);
+                const delta = new Date() - selectStartDate(allItems);
+                const total = selectTotal(allItems);
                 const canvas = document.createElement("canvas");
                 const perDay = total / (delta / (1000 * 60 * 60 * 24));
                 const perMonth = total / (delta / (1000 * 60 * 60 * 24 * 30));
                 return h("main", {}, [
                     h("ul", {}, [
-                        h("li", {}, Card("Totals", [
+                        h("li", {}, Card("Daily Totals", [
                             h("span", { style: `color: ${perDay > 0 ? "green" : "red"}` }, text(`${perDay > 0 ? "+" : "-"}${perDay.toFixed(2)} / Day`)),
-                            DailyChart(state.items),
+                            DailyChart(items),
                         ])),
-                        h("li", {}, Card("Totals", [
+                        h("li", {}, Card("Monthly Totals", [
                             h("span", { style: `color: ${perMonth > 0 ? "green" : "red"}` }, text(`${perMonth > 0 ? "+" : "-"}${perMonth.toFixed(2)} / Month`)),
-                            MonthlyChart(state.items),
+                            MonthlyTotals(items),
                         ])),
-                        h("li", {}, Card("Test", [
-                            text("??? $ / ???"),
-                            h("img", { height: "100px", width: "100px", alt: "???", src: "//via.placeholder.com/100x100" }),
+                        h("li", {}, Card("Monthly Costs", [
+                            h("span", { style: `color: ${perMonth > 0 ? "green" : "red"}` }, text(`${perMonth > 0 ? "+" : "-"}${perMonth.toFixed(2)} / Month`)),
+                            MonthlyCosts(items),
                         ])),
                     ])
                 ]);
@@ -343,19 +374,19 @@
                             h("details", {}, [
                                 h("summary", {}, text("Categories")),
                                 h("ul", {},
-                                    state.categories.map(c => h("li", { key: c }, text(c))),
+                                    selectCategories(state.items).map(c => h("li", { key: c }, text(c))),
                                 ),
                             ]),
                             h("details", {}, [
                                 h("summary", {}, text("Locations")),
                                 h("ul", {},
-                                    state.locations.map(c => h("li", { key: c }, text(c))),
+                                    selectLocations(state.items).map(c => h("li", { key: c }, text(c))),
                                 ),
                             ]),
                             h("details", {}, [
-                                h("summary", {}, text("Items")),
+                                h("summary", {}, text("Descriptions")),
                                 h("ul", {},
-                                    state.things.map(c => h("li", { key: c }, text(c))),
+                                    selectDescriptions(state.items).map(c => h("li", { key: c }, text(c))),
                                 ),
                             ]),
                         ]),
