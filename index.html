@@ -69,37 +69,9 @@
     <script src="https://unpkg.com/papaparse@5.3.1/papaparse.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script type="module">
-        import { h, text, patch } from "https://unpkg.com/superfine@8.2.0/index.js"
-        /*
-        async function loadAverages() {
-            const data = await loadData();
-            console.log(data);
+        import { h, text, patch } from "https://unpkg.com/superfine@8.2.0/index.js";
+        import Fuse from "https://cdn.jsdelivr.net/npm/fuse.js@6.5.3/dist/fuse.esm.js";
 
-            const start_date = new Date(Math.min.apply(null, data.items.map(i => i.date)));
-            const end_date = new Date();
-            const delta = end_date.getTime() - start_date.getTime();
-            let h1;
-            h1 = document.createElement("h1");
-            h1.textContent = displayTimeSince(start_date, end_date);
-            document.body.appendChild(h1);
-            h1 = document.createElement("h1");
-            h1.textContent = `$/day: ${(total / (delta / (24 * 60 * 60 * 1000))).toFixed(2)}`;
-            document.body.appendChild(h1);
-            h1 = document.createElement("h1");
-            h1.textContent = `$/month: ${(total / (delta / (30 * 24 * 60 * 60 * 1000))).toFixed(2)}`;
-            document.body.appendChild(h1);
-            for (let c of data.categories) {
-                h1 = document.createElement("h1");
-                h1.textContent = `$/month in ${c}: ${(total_by_category[c] / (delta / (30 * 24 * 60 * 60 * 1000))).toFixed(2)}`;
-                document.body.appendChild(h1);
-            }
-            for (let c of data.locations) {
-                h1 = document.createElement("h1");
-                h1.textContent = `$/month at ${c}: ${(total_by_location[c] / (delta / (30 * 24 * 60 * 60 * 1000))).toFixed(2)}`;
-                document.body.appendChild(h1);
-            }
-        }
-        */
         window._data = undefined;
         window._csv = undefined;
 
@@ -142,8 +114,10 @@
                 }
                 items.push(item);
             }
-            const categories = Array.from(new Set(items.map(i => i["category"])));
-            const locations = Array.from(new Set(items.map(i => i["location"])));
+            // TODO: these should all be memoized selectors
+            const categories = Array.from(new Set(items.map(i => i["category"].toLowerCase())));
+            const locations = Array.from(new Set(items.map(i => i["location"].toLowerCase())));
+            const things = Array.from(new Set(items.map(i => i["item"].toLowerCase())));
             const total_by_category = {};
             for (let c of categories) {
                 total_by_category[c] = 0;
@@ -166,6 +140,7 @@
                 items,
                 categories,
                 locations,
+                things,
                 total_by_category,
                 total_by_location,
                 total,
@@ -206,55 +181,134 @@
                 h("div", { class: "title-bar" }, [
                     h("div", { class: "title-bar-text" }, text(title))
                 ]),
-                h("div", { class: "window-body" },
-                    children,
-                    // text("??? $ / ???"),
-                    // h("img", { height: "100px", width: "100px", alt: "???", src: "//via.placeholder.com/100x100" }),
-                ),
+                h("div", { class: "window-body" }, children),
             ]);
         }
 
-        function cumulativeSum(items) {
-            const data = {
-                type: 'line',
-                data: {
-                    datasets: [{
-                        data: []
-                    }]
+
+        function memoize(f) {
+            const cache = {};
+            return (...args) => {
+                if (cache === {} || cache.args?.length !== args.length || args.some((a, i) => a !== cache.args[i])) {
+                    cache.args = args;
+                    cache.val = f(...args);
                 }
-            };
-            let total = 0;
-            for (let item of items) {
-                total += Math.abs(item.cost) * (item.category == "income" ? 1 : -1);
-                data.data.datasets[0].data.push({ x: item.date.getTime(), y: total })
+                return cache.val;
             }
-            return data;
         }
 
-        function Content(dispatch) {
-            return function (state) {
-                const { page, total, delta, items = [] } = state;
-                if (page == "averages") {
-                    const perDay = total / (delta / (1000 * 60 * 60 * 24));
-                    const perMonth = total / (delta / (1000 * 60 * 60 * 24 * 30));
-                    const config = cumulativeSum(state.items);
-                    const myChart = new Chart(document.getElementById('avg-day-graph'), config);
-                    console.log(myChart);
-                    return h("main", {}, [
-                        h("ul", {}, [
-                            h("li", {}, Card("Totals", [
-                                h("span", { style: `color: ${perDay > 0 ? "green" : "red"}` }, text(`${perDay > 0 ? "+" : "-"}${perDay.toFixed(2)} / Day`)),
-                                h("canvas", { id: "avg-day-graph" }),
-                            ])),
-                            h("li", {}, Card("Totals", [
-                                h("span", { style: `color: ${perMonth > 0 ? "green" : "red"}` }, text(`${perMonth > 0 ? "+" : "-"}${perMonth.toFixed(2)} / Month`)),
-                            ])),
-                        ])
-                    ]);
+        function getCost(item) {
+            if (item.category === "income") {
+                return Math.abs(item.cost);
+            }
+            return -Math.abs(item.cost);
+        }
+
+
+
+        const DailyChart = memoize((items) => {
+            items = [...items].sort((a, b) => a.date - b.date);
+            if (items.length === 0) {
+                return h("span", {}, text("No items :("));
+            }
+            const labels = [];
+            const data = items.reduce((p, n, i) => {
+                const l = items[Math.max(i - 1, 0)];
+                const sum = p[p.length - 1] + getCost(n);
+                if (n.date.toDateString() === l.date.toDateString()) {
+                    p[p.length - 1] = sum;
+                } else {
+                    p.push(sum);
+                    labels.push(n.date.toDateString());
                 }
+                return p;
+            }, [items[0].cost]).slice(1)
+            const config = {
+                type: "line",
+                data: {
+                    labels,
+                    datasets: [{
+                        label: "Daily Totals",
+                        backgroundColor: 'rgb(255, 99, 132)',
+                        borderColor: 'rgb(255, 99, 132)',
+                        data,
+                    }]
+                }
+            }
+            const ref = h("canvas", {});
+            window.requestAnimationFrame(() => {
+                console.log("making a new chart 2");
+                new Chart(ref.node, config);
+            });
+            return ref;
+        });
+
+
+        const MonthlyChart = memoize((items) => {
+            const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+            const getMonthYear = (d) => `${d.getMonth()}/${d.getFullYear()}`;
+            items = [...items].sort((a, b) => a.date - b.date);
+            if (items.length === 0) {
+                return h("span", {}, text("No items :("));
+            }
+            const labels = [];
+            const data = items.reduce((p, n, i) => {
+                const l = items[Math.max(i - 1, 0)];
+                const sum = p[p.length - 1] + getCost(n);
+                if (getMonthYear(n.date) === getMonthYear(l.date)) {
+                    p[p.length - 1] = sum;
+                } else {
+                    p.push(sum);
+                    labels.push(`${months[n.date.getMonth()]} ${n.date.getFullYear()}`);
+                }
+                return p;
+            }, [items[0].cost]).slice(1)
+            const config = {
+                type: "line",
+                data: {
+                    labels,
+                    datasets: [{
+                        label: "Monthly Totals",
+                        backgroundColor: 'rgb(255, 99, 132)',
+                        borderColor: 'rgb(255, 99, 132)',
+                        data,
+                    }]
+                }
+            }
+            const ref = h("canvas", {});
+            window.requestAnimationFrame(() => {
+                console.log("making a new chart 2");
+                new Chart(ref.node, config);
+            });
+            return ref;
+        });
+
+        function Content(dispatch) {
+            const filterItems = memoize((items = [], search = "") =>
+                // TODO fuse
+                items.filter(i => i.item.contains(search))
+            );
+            return function (state) {
+                if (state.search === "blank")
+                    return h("main", {});
+                const { page = "averages", total, delta, items = [] } = state;
+                const canvas = document.createElement("canvas");
+                const perDay = total / (delta / (1000 * 60 * 60 * 24));
+                const perMonth = total / (delta / (1000 * 60 * 60 * 24 * 30));
                 return h("main", {}, [
                     h("ul", {}, [
-                        h("li", {}, Card("title", [text("child")])),
+                        h("li", {}, Card("Totals", [
+                            h("span", { style: `color: ${perDay > 0 ? "green" : "red"}` }, text(`${perDay > 0 ? "+" : "-"}${perDay.toFixed(2)} / Day`)),
+                            DailyChart(state.items),
+                        ])),
+                        h("li", {}, Card("Totals", [
+                            h("span", { style: `color: ${perMonth > 0 ? "green" : "red"}` }, text(`${perMonth > 0 ? "+" : "-"}${perMonth.toFixed(2)} / Month`)),
+                            MonthlyChart(state.items),
+                        ])),
+                        h("li", {}, Card("Test", [
+                            text("??? $ / ???"),
+                            h("img", { height: "100px", width: "100px", alt: "???", src: "//via.placeholder.com/100x100" }),
+                        ])),
                     ])
                 ]);
             }
@@ -269,30 +323,39 @@
         }
 
         function Sidebar(dispatch) {
+            const handleInput = (e) => {
+                dispatch(s => ({ ...s, search: e.target.value }));
+            }
             return function (state) {
                 return h("aside", { class: "sidebar" }, [
                     h("ul", { class: "tree-view" }, [
                         h("li", {},
                             h("form", { class: "field-row" }, [
                                 h("label", { for: "search-input" }, text("Search")),
-                                h("input", { id: "search-input", type: "text" }),
+                                h("input", { id: "search-input", type: "text", oninput: handleInput }),
                             ])
                         ),
                         h("li", {}, text("Sections")),
                         h("li", {}, [
-                            h("details", { open: state.page == "averages" }, [
+                            h("details", {}, [
                                 h("summary", {}, text("Averages")),
                             ]),
-                            h("details", { open: state.page == "categories" }, [
+                            h("details", {}, [
                                 h("summary", {}, text("Categories")),
                                 h("ul", {},
                                     state.categories.map(c => h("li", { key: c }, text(c))),
                                 ),
                             ]),
-                            h("details", { open: state.page == "locations" }, [
+                            h("details", {}, [
                                 h("summary", {}, text("Locations")),
                                 h("ul", {},
                                     state.locations.map(c => h("li", { key: c }, text(c))),
+                                ),
+                            ]),
+                            h("details", {}, [
+                                h("summary", {}, text("Items")),
+                                h("ul", {},
+                                    state.things.map(c => h("li", { key: c }, text(c))),
                                 ),
                             ]),
                         ]),
@@ -327,12 +390,10 @@
         }
 
         async function start() {
-            const c = new Controller({
-                intializing: true,
-                page: "averages",
-            });
+            const c = new Controller({ intializing: true });
             const app = App(c.dispatch);
             c.addListener(s => patch(document.getElementById("app"), app(s)));
+            c.addListener(s => window._state = s);
             const data = await loadData();
             c.dispatch(s => ({ ...s, intializing: false, ...data }));
         }

@@ -3,7 +3,7 @@ date,item,cost,location,category,notes
 10/12/2021,eggs,$2.09,giant,groceries,
 10/12/2021,picture hangers,$2.59,giant,groceries,
 10/12/2021,tortillas,$2.79,giant,groceries,
-10/12/2021,salsa verde,$3.19,giant,groceries,
+8/8/2021,salsa verde,$3.19,giant,groceries,
 10/12/2021,strawberry jam,$2.50,safeway,groceries,
 10/12/2021,black beans,$0.50,safeway,groceries,
 10/12/2021,strawberry jam,$2.50,safeway,groceries,
@@ -15,5 +15,5 @@ date,item,cost,location,category,notes
 11/1/2021,paycheck,"$1,000.00",work,income
 9/1/2021,profit,"$1,234.00",sidejob,income
 10/14/2021,hulu,$7.99,hulu,entertainment,
-10/12/2021,internet,$99.99,at&t,utilities,
+12/12/2021,internet,$99.99,at&t,utilities,
 10/12/2021,electricty,$100.00,goverment,utilities,
