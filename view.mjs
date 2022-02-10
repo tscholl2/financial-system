@@ -1,6 +1,6 @@
 import { h, text } from "https://unpkg.com/superfine@8.2.0/index.js";
-import { memoize } from "./utils.mjs";
-import { selectCategories, selectDescriptions, selectFilteredItems, selectLocations, selectStartDate, selectTotal,getCost } from "./actions.mjs";
+import { memoize, overWrite } from "./utils.mjs";
+import { selectCategories, selectDescriptions, selectFilteredItems, selectLocations, selectStartDate, selectTotal, selectCost, selectTotalsByCategory, selectTotalsByLocation } from "./actions.mjs";
 
 function Navbar() {
     return function () {
@@ -13,19 +13,15 @@ function Navbar() {
 function ChartComponent(config) {
     const vnode = h("canvas", {});
     window.requestAnimationFrame(() => {
-        console.log("updating chart!", vnode.node)
         if (vnode?.node == null) {
             console.error(`expected node, got nothing: ${vnode}`);
         }
         const oldChart = vnode.node._chart;
-        console.log("old chart = ",oldChart)
         if (oldChart) {
-            console.log("found old chart!")
-            // TODO: we need to mutate not overwrite
-            oldChart.data = config;
+            // TODO: need to do a new chart if new chart type != old type
+            overWrite(oldChart.data, config.data);
             oldChart.update();
         } else {
-            console.log("making new chart!")
             vnode.node._chart = new Chart(vnode.node, config);
         }
     });
@@ -41,7 +37,7 @@ function Card(title, children) {
     ]);
 }
 
-const DailyChart = memoize((items) => {
+function DailyChart(items) {
     items = [...items].sort((a, b) => a.date - b.date);
     if (items.length === 0) {
         return h("span", {}, text("No items :("));
@@ -49,7 +45,7 @@ const DailyChart = memoize((items) => {
     const labels = [];
     const data = items.reduce((p, n, i) => {
         const l = items[Math.max(i - 1, 0)];
-        const sum = p[p.length - 1] + getCost(n);
+        const sum = p[p.length - 1] + selectCost(n);
         if (n.date.toDateString() === l.date.toDateString()) {
             p[p.length - 1] = sum;
         } else {
@@ -71,9 +67,9 @@ const DailyChart = memoize((items) => {
         }
     }
     return ChartComponent(config);
-});
+}
 
-function MonthlyCosts(items) {
+function MonthlyChart(items) {
     const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
     const getMonthYear = (d) => `${d.getMonth()}/${d.getFullYear()}`;
     items = [...items].sort((a, b) => a.date - b.date);
@@ -84,9 +80,9 @@ function MonthlyCosts(items) {
     const data = items.reduce((p, n, i) => {
         const l = items[Math.max(i - 1, 0)];
         if (getMonthYear(n.date) === getMonthYear(l.date)) {
-            p[p.length - 1] += getCost(n);
+            p[p.length - 1] += selectCost(n);
         } else {
-            p.push(getCost(n));
+            p.push(selectCost(n));
             labels.push(`${months[n.date.getMonth()]} ${n.date.getFullYear()}`);
         }
         return p;
@@ -106,39 +102,41 @@ function MonthlyCosts(items) {
     return ChartComponent(config);
 }
 
-const MonthlyTotals = memoize((items) => {
-    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-    const getMonthYear = (d) => `${d.getMonth()}/${d.getFullYear()}`;
-    items = [...items].sort((a, b) => a.date - b.date);
-    if (items.length === 0) {
-        return h("span", {}, text("No items :("));
-    }
-    const labels = [];
-    const data = items.reduce((p, n, i) => {
-        const l = items[Math.max(i - 1, 0)];
-        const sum = p[p.length - 1] + getCost(n);
-        if (getMonthYear(n.date) === getMonthYear(l.date)) {
-            p[p.length - 1] = sum;
-        } else {
-            p.push(sum);
-            labels.push(`${months[n.date.getMonth()]} ${n.date.getFullYear()}`);
+function BiggestCategory(state) {
+    const categoryTotals = selectTotalsByCategory(state);
+    let ck = "", cv = 0;
+    for (let [k, v] of Object.entries(categoryTotals)) {
+        if (v < cv && k != "income") {
+            [ck, cv] = [k, v];
         }
+    }
+    const locationTotals = selectTotalsByLocation(state);
+    let lk = "", lv = 0;
+    for (let [k, v] of Object.entries(locationTotals)) {
+        if (v < lv && k != "income") {
+            [lk, lv] = [k, v];
+        }
+    }
+    let ilk = "", ilv = 0;
+    const incomeTotals = state.items.filter(i => i.category === "income").reduce((p, n) => {
+        p[n.location] = (p[n.location] || 0) + selectCost(n);
         return p;
-    }, [items[0].cost]).slice(1)
-    const config = {
-        type: "line",
-        data: {
-            labels,
-            datasets: [{
-                label: "Monthly Totals",
-                backgroundColor: 'rgb(255, 99, 132)',
-                borderColor: 'rgb(255, 99, 132)',
-                data,
-            }]
+    }, {})
+    for (let [k, v] of Object.entries(incomeTotals)) {
+        if (v > ilv) {
+            [ilk, ilv] = [k, v];
         }
     }
-    return ChartComponent(config);
-});
+
+    const start = selectStartDate(state);
+    const end = new Date();
+    const months = ((end - start) / (1000 * 60 * 60 * 24 * 30));
+    return Card("Biggest Incomes and Costs", h("ul", { id: "biggest-costs" }, [
+        h("li", {}, text(`$${(cv / months).toFixed(2)} / month in ${ck.toLocaleUpperCase()}`)),
+        h("li", {}, text(`$${(lv / months).toFixed(2)} / month at ${lk.toLocaleUpperCase()}`)),
+        h("li", {}, text(`$${(ilv / months).toFixed(2)} / month from ${ilk.toLocaleUpperCase()}`)),
+    ]));
+}
 
 function Content(dispatch) {
     return function (state) {
@@ -155,23 +153,12 @@ function Content(dispatch) {
                     h("span", { style: `color: ${perDay > 0 ? "green" : "red"}` }, text(`${perDay > 0 ? "+" : "-"}${perDay.toFixed(2)} / Day`)),
                     DailyChart(items),
                 ])),
-                h("li", {}, Card("Monthly Totals", [
-                    h("span", { style: `color: ${perMonth > 0 ? "green" : "red"}` }, text(`${perMonth > 0 ? "+" : "-"}${perMonth.toFixed(2)} / Month`)),
-                    MonthlyTotals(items),
-                ])),
                 h("li", {}, Card("Monthly Costs", [
                     h("span", { style: `color: ${perMonth > 0 ? "green" : "red"}` }, text(`${perMonth > 0 ? "+" : "-"}${perMonth.toFixed(2)} / Month`)),
-                    MonthlyCosts(items),
+                    MonthlyChart(items),
                 ])),
+                h("li", {}, BiggestCategory(state)),
             ])
-        ]);
-    }
-}
-
-function Footer() {
-    return function () {
-        return h("footer", {}, [
-            text("Footer"),
         ]);
     }
 }
@@ -181,19 +168,20 @@ function Sidebar(dispatch) {
         dispatch(s => ({ ...s, search: e.target.value }));
     }
     return function (state) {
+        const { search = "", filter = {} } = state;
         return h("aside", { class: "sidebar" }, [
             h("ul", { class: "tree-view" }, [
                 h("li", {},
                     h("form", { class: "field-row" }, [
                         h("label", { for: "search-input" }, text("Search")),
-                        h("input", { id: "search-input", type: "text", oninput: handleInput }),
+                        h("input", { id: "search-input", type: "text", oninput: handleInput, value: search }),
                     ])
+                ),
+                h("li", {},
+                    text(`Filter: ${Object.entries(filter).map(([k, v]) => v == null ? "" : `${k} ${v ? "✔️" : "✖️"}`).join(", ")}`),
                 ),
                 h("li", {}, text("Sections")),
                 h("li", {}, [
-                    h("details", {}, [
-                        h("summary", {}, text("Averages")),
-                    ]),
                     h("details", {}, [
                         h("summary", {}, text("Categories")),
                         h("ul", {},
@@ -219,17 +207,9 @@ function Sidebar(dispatch) {
 }
 
 export function App(dispatch) {
-    /*
-    const inc = () => dispatch(s => ({ ...s, value: s.value - 1 }));
-    const dec = () => dispatch(s => ({ ...s, value: s.value + 1 }));
-    h("h1", {}, text(state.value)),
-    h("button", { onclick: inc }, text("-")),
-    h("button", { onclick: dec }, text("+")),
-    */
     const sidebar = Sidebar(dispatch);
     const content = Content(dispatch);
     const navbar = Navbar(dispatch);
-    const footer = Footer(dispatch);
     return function (state) {
         if (state.intializing) {
             return h("div", {}, [h("progress", {})]);
@@ -238,7 +218,6 @@ export function App(dispatch) {
             navbar(state),
             sidebar(state),
             content(state),
-            footer(state),
         ])
     }
 }

@@ -21,7 +21,7 @@ export const selectFilteredItems = createSelector(
         }).search(search).map(a => a.item)
 );
 
-export const getCost = (item) => item.category === "income" ? Math.abs(item.cost) : -Math.abs(item.cost);
+export const selectCost = (item) => item.category === "income" ? Math.abs(item.cost) : -Math.abs(item.cost);
 
 export const selectCategories = createSelector(
     selectItems,
@@ -41,7 +41,7 @@ export const selectDescriptions = createSelector(
 export const selectTotalsByCategory = createSelector(
     selectItems,
     items => items.reduce((p, n) => {
-        p[n.category] = (p[n.category] || 0) + getCost(n);
+        p[n.category] = (p[n.category] || 0) + selectCost(n);
         return p;
     }, {})
 );
@@ -49,7 +49,7 @@ export const selectTotalsByCategory = createSelector(
 export const selectTotalsByLocation = createSelector(
     selectItems,
     items => items.reduce((p, n) => {
-        p[n.location] = (p[n.location] || 0) + getCost(n);
+        p[n.location] = (p[n.location] || 0) + selectCost(n);
         return p;
     }, {})
 );
@@ -57,14 +57,14 @@ export const selectTotalsByLocation = createSelector(
 export const selectTotalsByDescription = createSelector(
     selectItems,
     items => items.reduce((p, n) => {
-        p[n.item] = (p[n.item] || 0) + getCost(n);
+        p[n.item] = (p[n.item] || 0) + selectCost(n);
         return p;
     }, {})
 );
 
 export const selectTotal = createSelector(
     selectItems,
-    (items) => items.reduce((p, n) => p + getCost(n), 0)
+    (items) => items.reduce((p, n) => p + selectCost(n), 0)
 );
 
 export const selectStartDate = createSelector(

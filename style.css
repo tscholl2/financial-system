@@ -1,0 +1,58 @@
+body {
+    margin: 0;
+    padding: 0;
+    background-color: #c0c0c0;
+    font-family: monospace;
+}
+
+#app {
+    display: grid;
+    gap: 20px;
+    grid-template-columns: 1fr 3fr;
+    grid-template-areas:
+        "header  header"
+        "sidebar content"
+        "sidebar content";
+}
+
+nav {
+    grid-area: header;
+}
+
+main {
+    grid-area: content;
+}
+
+main>ul {
+    display: flex;
+    justify-content: space-around;
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+
+main>ul>li {
+    list-style: none;
+    margin: 10px;
+}
+
+.card {
+    width: 320px;
+    height: 240px;
+}
+
+aside {
+    grid-area: sidebar;
+    padding-left: 20px;
+    min-width: 250px;
+    overflow-y: auto;
+    height: 95vh;
+}
+
+aside>ul {
+    min-height: 90vh;
+}
+
+#biggest-costs {
+    font-size: 20px;
+    margin: 10px;
+}

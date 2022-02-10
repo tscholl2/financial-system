@@ -38,10 +38,15 @@ export function displayTimeSince(A, B) {
 }
 
 export function overWrite(ptr = {}, obj = {}) {
-    for (let k, v of Object.entries(obj)) {
-        if (ptr.hasOwnProperty(k)) {
+    for (let [k, v] of Object.entries(obj)) {
+        if (ptr.hasOwnProperty(k) && typeof ptr[k] === typeof v) {
             if (typeof ptr[k] === "Object") {
                 overWrite(ptr[k], v);
+            } else if (Array.isArray(ptr[k])) {
+                while (ptr[k].length)
+                    ptr[k].pop();
+                while (v.length)
+                    ptr[k].push(v.pop());
             } else {
                 ptr[k] = v;
             }
@@ -49,4 +54,5 @@ export function overWrite(ptr = {}, obj = {}) {
             ptr[k] = v;
         }
     }
+    return ptr;
 }
