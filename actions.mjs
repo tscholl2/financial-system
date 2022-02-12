@@ -23,19 +23,23 @@ export const selectFilteredItems = createSelector(
 
 export const selectCost = (item) => item.category === "income" ? Math.abs(item.cost) : -Math.abs(item.cost);
 
+function createSelectBy(property) {
+    return items => Array.from(new Set(items.map(i => i[property].toLowerCase())));
+}
+
 export const selectCategories = createSelector(
     selectItems,
-    items => Array.from(new Set(items.map(i => i["category"].toLowerCase())))
+    createSelectBy("category"),
 );
 
 export const selectLocations = createSelector(
     selectItems,
-    items => Array.from(new Set(items.map(i => i["location"].toLowerCase())))
+    createSelectBy("location"),
 );
 
 export const selectDescriptions = createSelector(
     selectItems,
-    items => Array.from(new Set(items.map(i => i["item"].toLowerCase())))
+    createSelectBy("item"),
 );
 
 export const selectTotalsByCategory = createSelector(

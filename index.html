@@ -8,10 +8,11 @@
     <link rel="stylesheet" href="style.css" />
     <script src="https://unpkg.com/papaparse@5.3.1/papaparse.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/icepick@2.4.0/icepick.min.js"></script>
     <script type="module">
         import { patch } from "https://unpkg.com/superfine@8.2.0/index.js";
         import { App } from "./view.mjs";
-        import { Controller } from "./utils.mjs";
+        import { Controller } from "./controller.mjs";
 
         window._data = undefined;
 
@@ -51,19 +52,13 @@
             return window._data = { items };
         }
 
-
-
-
-
-
-
         async function start() {
-            const c = new Controller({ intializing: true });
+            const c = new Controller(icepick.freeze({ initializing: true }));
             const app = App(c.dispatch);
             c.addListener(s => patch(document.getElementById("app"), app(s)));
             c.addListener(s => window._state = s);
             const data = await loadData();
-            c.dispatch(s => ({ ...s, intializing: false, ...data }));
+            c.dispatch(s => (icepick.merge(s, { initializing: false , ...data })));
         }
         start();
     </script>

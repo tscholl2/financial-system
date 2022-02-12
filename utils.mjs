@@ -1,5 +1,3 @@
-export const Controller = function () { return function (t) { var n = this; this.p = [], this.l = [], this.getState = function () { return n.s }, this.addPlugin = function (t) { n.p.push(t) }, this.removePlugin = function (t) { n.p = n.p.filter(function (n) { return n !== t }) }, this.addListener = function (t) { n.l.push(t) }, this.removeListener = function (t) { n.l = n.l.filter(function (n) { return n !== t }) }, this.dispatch = function (t) { n.p.forEach(function (n) { return t = n(t) }); var i = t(n.s); n.s !== i && (n.s = i, n.l.forEach(function (t) { return t(n.s, n.dispatch) })) }, this.s = t } }();
-
 export function memoize(f) {
     const cache = {};
     return (...args) => {
@@ -58,9 +56,10 @@ export function overWrite(ptr = {}, obj = {}) {
 }
 
 export function getIn(obj = {}, path = []) {
-    return path.reduce((p, n) => p[n], obj);
+    return path.reduce((p, n) => p ? p[n] : undefined, obj);
 }
 
 export function setIn(obj = {}, path = [], value = undefined) {
-    return path.reduce((p, n, i) => i === path.length - 1 ? (p[n] = value) : (p[n] ? p[n] : p[n] = {}), obj);
+    path.reduce((p, n, i) => i === path.length - 1 ? (p[n] = value) : (p[n] ? p[n] : p[n] = {}), obj);
+    return obj;
 }

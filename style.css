@@ -52,6 +52,10 @@ aside>ul {
     min-height: 90vh;
 }
 
+aside [data-filter-value] {
+    cursor: pointer;
+}
+
 #biggest-costs {
     font-size: 20px;
     margin: 10px;

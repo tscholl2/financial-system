@@ -1,5 +1,5 @@
 import { h, text } from "https://unpkg.com/superfine@8.2.0/index.js";
-import { memoize, overWrite } from "./utils.mjs";
+import { getIn, memoize, overWrite, setIn } from "./utils.mjs";
 import { selectCategories, selectDescriptions, selectFilteredItems, selectLocations, selectStartDate, selectTotal, selectCost, selectTotalsByCategory, selectTotalsByLocation } from "./actions.mjs";
 
 function Navbar() {
@@ -164,9 +164,14 @@ function Content(dispatch) {
 }
 
 function Sidebar(dispatch) {
-    const handleInput = (e) => {
+    const handleSearchInput = (e) => {
         dispatch(s => ({ ...s, search: e.target.value }));
     }
+    const filterViews = ["", " ✔️", " ✖️"];
+    const handleFilterClick = (e) => {
+        const d = e.target.dataset;
+        dispatch(s => icepick.setIn(s, ["filter", d.filterKey], parseInt(d.filterValue, 10) + 1 % 3))
+    };
     return function (state) {
         const { search = "", filter = {} } = state;
         return h("aside", { class: "sidebar" }, [
@@ -174,18 +179,21 @@ function Sidebar(dispatch) {
                 h("li", {},
                     h("form", { class: "field-row" }, [
                         h("label", { for: "search-input" }, text("Search")),
-                        h("input", { id: "search-input", type: "text", oninput: handleInput, value: search }),
+                        h("input", { id: "search-input", type: "text", oninput: handleSearchInput, value: search }),
                     ])
-                ),
-                h("li", {},
-                    text(`Filter: ${Object.entries(filter).map(([k, v]) => v == null ? "" : `${k} ${v ? "✔️" : "✖️"}`).join(", ")}`),
                 ),
                 h("li", {}, text("Sections")),
                 h("li", {}, [
                     h("details", {}, [
                         h("summary", {}, text("Categories")),
                         h("ul", {},
-                            selectCategories(state).map(c => h("li", { key: c }, text(c))),
+                            selectCategories(state).map(k => h("li", {
+                                key: k,
+                                onclick: handleFilterClick,
+                                "data-filter-key": `c-${k}`,
+                                "data-filter-value": filter[`c-${k}`] || 0,
+                            },
+                                text(`${k}${filterViews[filter[`c-${k}`] || 0]}`))),
                         ),
                     ]),
                     h("details", {}, [
