@@ -1,24 +1,53 @@
 import { createSelector } from "./utils.mjs";
 import Fuse from "https://cdn.jsdelivr.net/npm/fuse.js@6.5.3/dist/fuse.esm.js";
 
-export const selectItems = ({ items }) => items;
+export const selectItems = ({ items = [] }) => items;
 
-export const selectSearch = ({ search }) => search || "";
+export const selectSearch = ({ search = "" }) => search;
+
+export const selectFilter = ({ filter = {} }) => filter;
+
+function searchItems(items = [], search = "") {
+    return search === "" ? items : new Fuse(items, {
+        shouldSort: false,
+        tokenize: false,
+        threshold: 0.5,
+        location: 0,
+        distance: 50,
+        maxPatternLength: 32,
+        minMatchCharLength: 1,
+        keys: ["category", "item", "location"]
+    }).search(search).map(a => a.item)
+}
+
+function filterItems(items = [], filter = {}) {
+    let included = [];
+    let excluded = [];
+    for (let [k, v] of Object.entries(filter)) {
+        if (v === 1) {
+            included.push(k);
+        }
+        if (v === 2) {
+            excluded.push(k);
+        }
+    }
+    return items.filter(item => {
+        const c = filter[`c-${item.category}`] || 0;
+        const l = filter[`l-${item.category}`] || 0;
+        const d = filter[`d-${item.category}`] || 0;
+        if (included.length > 0) {
+            return (c == 1) || (l == 1) || (d == 1);
+        } else {
+            return (c != 2) && (l != 2) && (d != 2);
+        }
+    })
+}
 
 export const selectFilteredItems = createSelector(
     selectItems,
     selectSearch,
-    (items, search) =>
-        search === "" ? items : new Fuse(items, {
-            shouldSort: false,
-            tokenize: false,
-            threshold: 0.5,
-            location: 0,
-            distance: 50,
-            maxPatternLength: 32,
-            minMatchCharLength: 1,
-            keys: ["category", "item", "location"]
-        }).search(search).map(a => a.item)
+    selectFilter,
+    (items, search, filter) => searchItems(filterItems(items, filter), search)
 );
 
 export const selectCost = (item) => item.category === "income" ? Math.abs(item.cost) : -Math.abs(item.cost);
@@ -68,6 +97,11 @@ export const selectTotalsByDescription = createSelector(
 
 export const selectTotal = createSelector(
     selectItems,
+    (items) => items.reduce((p, n) => p + selectCost(n), 0)
+);
+
+export const selectFilteredTotal = createSelector(
+    selectFilteredItems,
     (items) => items.reduce((p, n) => p + selectCost(n), 0)
 );
 

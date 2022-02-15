@@ -1,6 +1,6 @@
 import { h, text } from "https://unpkg.com/superfine@8.2.0/index.js";
-import { getIn, memoize, overWrite, setIn } from "./utils.mjs";
-import { selectCategories, selectDescriptions, selectFilteredItems, selectLocations, selectStartDate, selectTotal, selectCost, selectTotalsByCategory, selectTotalsByLocation } from "./actions.mjs";
+import { overWrite } from "./utils.mjs";
+import { selectCategories, selectDescriptions, selectFilteredItems, selectLocations, selectStartDate, selectTotal, selectCost, selectTotalsByCategory, selectTotalsByLocation, selectItems, selectFilteredTotal } from "./selectors.mjs";
 
 function Navbar() {
     return function () {
@@ -42,8 +42,8 @@ function DailyChart(items) {
     if (items.length === 0) {
         return h("span", {}, text("No items :("));
     }
-    const labels = [];
-    const data = items.reduce((p, n, i) => {
+    const labels = [items[0].date.toDateString()];
+    const data = items.slice(1).reduce((p, n, i) => {
         const l = items[Math.max(i - 1, 0)];
         const sum = p[p.length - 1] + selectCost(n);
         if (n.date.toDateString() === l.date.toDateString()) {
@@ -53,15 +53,15 @@ function DailyChart(items) {
             labels.push(n.date.toDateString());
         }
         return p;
-    }, [items[0].cost]).slice(1)
+    }, [items[0].cost])
     const config = {
         type: "line",
         data: {
             labels,
             datasets: [{
                 label: "Daily Totals",
-                backgroundColor: 'rgb(255, 99, 132)',
-                borderColor: 'rgb(255, 99, 132)',
+                backgroundColor: "rgb(255, 99, 132)",
+                borderColor: "rgb(255, 99, 132)",
                 data,
             }]
         }
@@ -76,8 +76,8 @@ function MonthlyChart(items) {
     if (items.length === 0) {
         return h("span", {}, text("No items :("));
     }
-    const labels = [];
-    const data = items.reduce((p, n, i) => {
+    const labels = [`${months[items[0].date.getMonth()]} ${items[0].date.getFullYear()}`];
+    const data = items.slice(1).reduce((p, n, i) => {
         const l = items[Math.max(i - 1, 0)];
         if (getMonthYear(n.date) === getMonthYear(l.date)) {
             p[p.length - 1] += selectCost(n);
@@ -86,15 +86,15 @@ function MonthlyChart(items) {
             labels.push(`${months[n.date.getMonth()]} ${n.date.getFullYear()}`);
         }
         return p;
-    }, [items[0].cost]).slice(1)
+    }, [items[0].cost])
     const config = {
         type: "line",
         data: {
             labels,
             datasets: [{
                 label: "Monthly Totals",
-                backgroundColor: 'rgb(255, 99, 132)',
-                borderColor: 'rgb(255, 99, 132)',
+                backgroundColor: "rgb(255, 99, 132)",
+                borderColor: "rgb(255, 99, 132)",
                 data,
             }]
         }
@@ -137,14 +137,57 @@ function BiggestCategory(state) {
         h("li", {}, text(`$${(ilv / months).toFixed(2)} / month from ${ilk.toLocaleUpperCase()}`)),
     ]));
 }
+function BiggestIncomes(state) {
+    const incomeTotals = selectItems(state).filter(i => i.category === "income").reduce((p, n) => {
+        p[n.location] = (p[n.location] || 0) + selectCost(n);
+        return p;
+    }, {})
+    const sortedTotals = Object.entries(incomeTotals).sort((a, b) => a[1] - b[1]);
+    const start = selectStartDate(state);
+    const end = new Date();
+    const months = ((end - start) / (1000 * 60 * 60 * 24 * 30));
+    return Card(
+        "Biggest Incomes",
+        h("ul", { id: "biggest-costs" },
+            sortedTotals.slice(0, 5).map(([k, v]) => h("li", {}, text(`$${(v / months).toFixed(2)} / month in ${k.toLocaleUpperCase()}`)))
+        ),
+    );
+}
+function BiggestCategories(state) {
+    const categoryTotals = selectTotalsByCategory(state);
+    const sortedTotals = Object.entries(categoryTotals).sort((a, b) => a[1] - b[1]);
+    const start = selectStartDate(state);
+    const end = new Date();
+    const months = ((end - start) / (1000 * 60 * 60 * 24 * 30));
+    return Card(
+        "Biggest Categories",
+        h("ul", { id: "biggest-costs" },
+            sortedTotals.slice(0, 5).map(([k, v]) => h("li", {}, text(`$${(v / months).toFixed(2)} / month in ${k.toLocaleUpperCase()}`)))
+        ),
+    );
+}
 
-function Content(dispatch) {
+function BiggestLocations(state) {
+    const locationTotals = selectTotalsByLocation(state);
+    const sortedTotals = Object.entries(locationTotals).sort((a, b) => a[1] - b[1]);
+    const start = selectStartDate(state);
+    const end = new Date();
+    const months = ((end - start) / (1000 * 60 * 60 * 24 * 30));
+    return Card(
+        "Biggest Locations",
+        h("ul", { id: "biggest-costs" },
+            sortedTotals.slice(0, 5).map(([k, v]) => h("li", {}, text(`$${(v / months).toFixed(2)} / month in ${k.toLocaleUpperCase()}`)))
+        ),
+    );
+}
+
+function Content() {
     return function (state) {
         if (state.search === "blank")
             return h("main", {});
         const items = selectFilteredItems(state);
         const delta = new Date() - selectStartDate(state);
-        const total = selectTotal(state);
+        const total = selectFilteredTotal(state);
         const perDay = total / (delta / (1000 * 60 * 60 * 24));
         const perMonth = total / (delta / (1000 * 60 * 60 * 24 * 30));
         return h("main", {}, [
@@ -157,10 +200,16 @@ function Content(dispatch) {
                     h("span", { style: `color: ${perMonth > 0 ? "green" : "red"}` }, text(`${perMonth > 0 ? "+" : "-"}${perMonth.toFixed(2)} / Month`)),
                     MonthlyChart(items),
                 ])),
-                h("li", {}, BiggestCategory(state)),
+                h("li", {}, BiggestCategories(state)),
+                h("li", {}, BiggestLocations(state)),
+                h("li", {}, BiggestIncomes(state)),
             ])
         ]);
     }
+}
+
+function Item(item) {
+    return text(`${item.date.toDateString()}: $${item.cost} ${item.item}${item.notes ? ` ${item.notes}` : ""}`);
 }
 
 function Sidebar(dispatch) {
@@ -170,10 +219,11 @@ function Sidebar(dispatch) {
     const filterViews = ["", " ✔️", " ✖️"];
     const handleFilterClick = (e) => {
         const d = e.target.dataset;
-        dispatch(s => icepick.setIn(s, ["filter", d.filterKey], parseInt(d.filterValue, 10) + 1 % 3))
+        dispatch(s => icepick.setIn(s, ["filter", d.filterKey], (parseInt(d.filterValue || 0, 10) + 1) % 3));
     };
     return function (state) {
         const { search = "", filter = {} } = state;
+        const filteredItems = selectFilteredItems(state);
         return h("aside", { class: "sidebar" }, [
             h("ul", { class: "tree-view" }, [
                 h("li", {},
@@ -206,6 +256,12 @@ function Sidebar(dispatch) {
                         h("summary", {}, text("Descriptions")),
                         h("ul", {},
                             selectDescriptions(state).map(c => h("li", { key: c }, text(c))),
+                        ),
+                    ]),
+                    h("details", {}, [
+                        h("summary", {}, text("Items")),
+                        h("ul", {},
+                            selectItems(state).map(c => h("li", { key: c, class: filteredItems.indexOf(c) < 0 ? "filtered" : "" }, Item(c))),
                         ),
                     ]),
                 ]),

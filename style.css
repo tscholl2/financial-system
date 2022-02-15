@@ -56,6 +56,10 @@ aside [data-filter-value] {
     cursor: pointer;
 }
 
+aside .filtered {
+    text-decoration: line-through;
+}
+
 #biggest-costs {
     font-size: 20px;
     margin: 10px;

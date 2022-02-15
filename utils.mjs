@@ -54,12 +54,3 @@ export function overWrite(ptr = {}, obj = {}) {
     }
     return ptr;
 }
-
-export function getIn(obj = {}, path = []) {
-    return path.reduce((p, n) => p ? p[n] : undefined, obj);
-}
-
-export function setIn(obj = {}, path = [], value = undefined) {
-    path.reduce((p, n, i) => i === path.length - 1 ? (p[n] = value) : (p[n] ? p[n] : p[n] = {}), obj);
-    return obj;
-}
