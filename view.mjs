@@ -37,6 +37,28 @@ function Card(title, children) {
     ]);
 }
 
+function DailyCosts(items) {
+    items = [...items].sort((a, b) => a.date - b.date);
+    if (items.length === 0) {
+        return h("span", {}, text("No items :("));
+    }
+    const labels = items.map(i => i.date.toDateString());
+    const data = items.map(i => selectCost(i));
+    const config = {
+        type: "line",
+        data: {
+            labels,
+            datasets: [{
+                label: "Daily Costs",
+                backgroundColor: "rgb(255, 99, 132)",
+                borderColor: "rgb(255, 99, 132)",
+                data,
+            }]
+        }
+    }
+    return ChartComponent(config);
+}
+
 function DailyChart(items) {
     items = [...items].sort((a, b) => a.date - b.date);
     if (items.length === 0) {
@@ -44,7 +66,7 @@ function DailyChart(items) {
     }
     const labels = [items[0].date.toDateString()];
     const data = items.slice(1).reduce((p, n, i) => {
-        const l = items[Math.max(i - 1, 0)];
+        const l = items[i];
         const sum = p[p.length - 1] + selectCost(n);
         if (n.date.toDateString() === l.date.toDateString()) {
             p[p.length - 1] = sum;
@@ -69,7 +91,7 @@ function DailyChart(items) {
     return ChartComponent(config);
 }
 
-function MonthlyChart(items) {
+function MonthlyCosts(items) {
     const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
     const getMonthYear = (d) => `${d.getMonth()}/${d.getFullYear()}`;
     items = [...items].sort((a, b) => a.date - b.date);
@@ -78,7 +100,7 @@ function MonthlyChart(items) {
     }
     const labels = [`${months[items[0].date.getMonth()]} ${items[0].date.getFullYear()}`];
     const data = items.slice(1).reduce((p, n, i) => {
-        const l = items[Math.max(i - 1, 0)];
+        const l = items[i];
         if (getMonthYear(n.date) === getMonthYear(l.date)) {
             p[p.length - 1] += selectCost(n);
         } else {
@@ -102,41 +124,6 @@ function MonthlyChart(items) {
     return ChartComponent(config);
 }
 
-function BiggestCategory(state) {
-    const categoryTotals = selectTotalsByCategory(state);
-    let ck = "", cv = 0;
-    for (let [k, v] of Object.entries(categoryTotals)) {
-        if (v < cv && k != "income") {
-            [ck, cv] = [k, v];
-        }
-    }
-    const locationTotals = selectTotalsByLocation(state);
-    let lk = "", lv = 0;
-    for (let [k, v] of Object.entries(locationTotals)) {
-        if (v < lv && k != "income") {
-            [lk, lv] = [k, v];
-        }
-    }
-    let ilk = "", ilv = 0;
-    const incomeTotals = state.items.filter(i => i.category === "income").reduce((p, n) => {
-        p[n.location] = (p[n.location] || 0) + selectCost(n);
-        return p;
-    }, {})
-    for (let [k, v] of Object.entries(incomeTotals)) {
-        if (v > ilv) {
-            [ilk, ilv] = [k, v];
-        }
-    }
-
-    const start = selectStartDate(state);
-    const end = new Date();
-    const months = ((end - start) / (1000 * 60 * 60 * 24 * 30));
-    return Card("Biggest Incomes and Costs", h("ul", { id: "biggest-costs" }, [
-        h("li", {}, text(`$${(cv / months).toFixed(2)} / month in ${ck.toLocaleUpperCase()}`)),
-        h("li", {}, text(`$${(lv / months).toFixed(2)} / month at ${lk.toLocaleUpperCase()}`)),
-        h("li", {}, text(`$${(ilv / months).toFixed(2)} / month from ${ilk.toLocaleUpperCase()}`)),
-    ]));
-}
 function BiggestIncomes(state) {
     const incomeTotals = selectItems(state).filter(i => i.category === "income").reduce((p, n) => {
         p[n.location] = (p[n.location] || 0) + selectCost(n);
@@ -193,12 +180,16 @@ function Content() {
         return h("main", {}, [
             h("ul", {}, [
                 h("li", {}, Card("Daily Totals", [
-                    h("span", { style: `color: ${perDay > 0 ? "green" : "red"}` }, text(`${perDay > 0 ? "+" : "-"}${perDay.toFixed(2)} / Day`)),
+                    h("span", { style: `color: ${perDay > 0 ? "green" : "red"}` }, text(`Average = ${perDay > 0 ? "+" : "-"}${perDay.toFixed(2)} / Day`)),
                     DailyChart(items),
                 ])),
+                h("li", {}, Card("Daily Totals", [
+                    h("span", { style: `color: ${perDay > 0 ? "green" : "red"}` }, text(`Average = ${perDay > 0 ? "+" : "-"}${perDay.toFixed(2)} / Day`)),
+                    DailyCosts(items),
+                ])),
                 h("li", {}, Card("Monthly Costs", [
-                    h("span", { style: `color: ${perMonth > 0 ? "green" : "red"}` }, text(`${perMonth > 0 ? "+" : "-"}${perMonth.toFixed(2)} / Month`)),
-                    MonthlyChart(items),
+                    h("span", { style: `color: ${perMonth > 0 ? "green" : "red"}` }, text(`Average = ${perMonth > 0 ? "+" : "-"}${perMonth.toFixed(2)} / Month`)),
+                    MonthlyCosts(items),
                 ])),
                 h("li", {}, BiggestCategories(state)),
                 h("li", {}, BiggestLocations(state)),

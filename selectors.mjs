@@ -71,29 +71,19 @@ export const selectDescriptions = createSelector(
     createSelectBy("item"),
 );
 
-export const selectTotalsByCategory = createSelector(
+const createSelectTotalsByProperty = property => createSelector(
     selectItems,
     items => items.reduce((p, n) => {
-        p[n.category] = (p[n.category] || 0) + selectCost(n);
+        p[n[property]] = (p[n[property]] || 0) + selectCost(n);
         return p;
     }, {})
 );
 
-export const selectTotalsByLocation = createSelector(
-    selectItems,
-    items => items.reduce((p, n) => {
-        p[n.location] = (p[n.location] || 0) + selectCost(n);
-        return p;
-    }, {})
-);
+export const selectTotalsByCategory = createSelectTotalsByProperty("category");
 
-export const selectTotalsByDescription = createSelector(
-    selectItems,
-    items => items.reduce((p, n) => {
-        p[n.item] = (p[n.item] || 0) + selectCost(n);
-        return p;
-    }, {})
-);
+export const selectTotalsByLocation = createSelectTotalsByProperty("location");
+
+export const selectTotalsByDescription = createSelectTotalsByProperty("item");
 
 export const selectTotal = createSelector(
     selectItems,
