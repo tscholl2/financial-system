@@ -1,6 +1,7 @@
-import { h, text } from "https://unpkg.com/superfine@8.2.0/index.js";
+//import { h,text } from "https://unpkg.com/superfine@8.2.0/index.js";
+import { h, text } from "./vendor/superfine.js";
 import { overWrite } from "./utils.mjs";
-import { selectCategories, selectDescriptions, selectFilteredItems, selectLocations, selectStartDate, selectTotal, selectCost, selectTotalsByCategory, selectTotalsByLocation, selectItems, selectFilteredTotal } from "./selectors.mjs";
+import { selectCategories, selectDescriptions, selectFilteredItems, selectLocations, selectStartDate, selectCost, selectTotalsByCategory, selectTotalsByLocation, selectItems, selectFilteredTotal } from "./selectors.mjs";
 
 function Navbar() {
     return function () {

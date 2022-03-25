@@ -58,6 +58,7 @@ aside [data-filter-value] {
 
 aside .filtered {
     text-decoration: line-through;
+    opacity: 0.3;
 }
 
 #biggest-costs {

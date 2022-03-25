@@ -4,13 +4,18 @@
 <head>
     <title>Finances</title>
     <meta charset="UTF-8" />
-    <link rel="stylesheet" href="https://unpkg.com/98.css" />
+    <!--link rel="stylesheet" href="https://unpkg.com/98.css" /-->
+    <link rel="stylesheet" href="vendor/98.css" />
     <link rel="stylesheet" href="style.css" />
-    <script src="https://unpkg.com/papaparse@5.3.1/papaparse.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://unpkg.com/icepick@2.4.0/icepick.min.js"></script>
+    <!--script src="https://unpkg.com/papaparse@5.3.1/papaparse.min.js"></script-->
+    <script src="vendor/papaparse.min.js"></script>
+    <!--script src="https://cdn.jsdelivr.net/npm/chart.js"></script-->
+    <script src="vendor/chart.js"></script>
+    <!--script src="https://unpkg.com/icepick@2.4.0/icepick.min.js"></script-->
+    <script src="vendor/icepick.min.js"></script>
     <script type="module">
-        import { patch } from "https://unpkg.com/superfine@8.2.0/index.js";
+        //import { patch } from "https://unpkg.com/superfine@8.2.0/index.js";
+        import { patch } from "./vendor/superfine.js";
         import { App } from "./view.mjs";
         import { Controller } from "./controller.mjs";
 
@@ -30,16 +35,24 @@
             const headers = data.data[0];
             const items = [];
             for (let values of data.data.slice(1)) {
+                let ok = true;
                 const item = {};
                 for (let i = 0; i < values.length; i++) {
                     switch (headers[i]) {
                         case "date":
-                            item[headers[i]] = new Date(values[i]);
+                            try {
+                                item[headers[i]] = new Date(values[i]);
+                            }
+                            catch (e) {
+                                console.error(`unable to parse date: '${value}'`);
+                                ok = false;
+                            }
                             break;
                         case "cost":
                             item[headers[i]] = parseFloat(values[i].replace(/[\$\,]/g, ""));
                             if (isNaN(item.cost)) {
-                                throw new Error(`Unable to parse cost: ${values}`);
+                                console.error(`Unable to parse cost: '${values}'`);
+                                ok = false;
                             }
                             break;
                         default:
@@ -47,7 +60,9 @@
                             break;
                     }
                 }
-                items.push(item);
+                if (ok) {
+                    items.push(item);
+                }
             }
             return window._data = { items };
         }
@@ -58,7 +73,7 @@
             c.addListener(s => patch(document.getElementById("app"), app(s)));
             c.addListener(s => window._state = s);
             const data = await loadData();
-            c.dispatch(s => (icepick.merge(s, { initializing: false , ...data })));
+            c.dispatch(s => (icepick.merge(s, { initializing: false, ...data })));
         }
         start();
     </script>
@@ -66,75 +81,7 @@
 
 <body>
     <div id="app">
-        <!--TODO-->
     </div>
-    <!--
-        <head>
-            <nav class="title-bar">
-                <div class="title-bar-text">Fin$</div>
-            </nav>
-        </head>
-        <aside>
-            <ul class="tree-view">
-                <li>Sections</li>
-                <li>
-                    <details>
-                        <summary>Categories</summary>
-                        <ul>
-                            <li>???</li>
-                        </ul>
-                    </details>
-                </li>
-                <li>
-                    <details>
-                        <summary>Locations</summary>
-                        <ul>
-                            <li>???</li>
-                        </ul>
-                    </details>
-                </li>
-            </ul>
-        </aside>
-        <main>
-            <ul id="cards">
-                <li>
-                    <div class="window" style="width: 320px">
-                        <div class="title-bar">
-                            <div class="title-bar-text">Name of Category</div>
-                        </div>
-                        <div class="window-body">
-                            ??? $ / ???
-                            <img height="100px" width="100px" alt="graph" src="//via.placeholder.com/100x100" />
-                        </div>
-                    </div>
-                </li>
-                <li>
-                    <div class="window" style="width: 320px">
-                        <div class="title-bar">
-                            <div class="title-bar-text">Name of Category</div>
-                        </div>
-                        <div class="window-body">
-                            ??? $ / ???
-                            <img height="100px" width="100px" alt="graph" src="//via.placeholder.com/100x100" />
-                        </div>
-                    </div>
-                </li>
-                <li>
-                    <div class="window" style="width: 320px">
-                        <div class="title-bar">
-                            <div class="title-bar-text">Name of Category</div>
-                        </div>
-                        <div class="window-body">
-                            ??? $ / ???
-                            <img height="100px" width="100px" alt="graph" src="//via.placeholder.com/100x100" />
-                        </div>
-                    </div>
-                </li>
-            </ul>
-        </main>
-        <footer>Footer</footer>
-    -->
-
 </body>
 
 </html>
