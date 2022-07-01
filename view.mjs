@@ -1,7 +1,11 @@
 //import { h,text } from "https://unpkg.com/superfine@8.2.0/index.js";
 import { h, text } from "./vendor/superfine.js";
-import { overWrite } from "./utils.mjs";
-import { selectCategories, selectDescriptions, selectFilteredItems, selectLocations, selectStartDate, selectCost, selectTotalsByCategory, selectTotalsByLocation, selectItems, selectFilteredTotal } from "./selectors.mjs";
+import { selectCategories, selectDescriptions, selectFilteredItems, selectLocations, selectStartDate, selectCost, selectTotalsByCategory, selectTotalsByLocation, selectItems } from "./selectors.mjs";
+import { DailySpending } from "./components/daily-spending.mjs";
+import { MonthlySpending } from "./components/monthly-spending.mjs";
+import { Card } from "./components/common.mjs";
+import { Filters } from "./components/filters.mjs";
+
 
 function Navbar() {
     return function () {
@@ -9,120 +13,6 @@ function Navbar() {
             h("div", { class: "title-bar-text" }, text("Fin$")),
         ]);
     }
-}
-
-function ChartComponent(config) {
-    const vnode = h("canvas", {});
-    window.requestAnimationFrame(() => {
-        if (vnode?.node == null) {
-            console.error(`expected node, got nothing: ${vnode}`);
-        }
-        const oldChart = vnode.node._chart;
-        if (oldChart) {
-            // TODO: need to do a new chart if new chart type != old type
-            overWrite(oldChart.data, config.data);
-            oldChart.update();
-        } else {
-            vnode.node._chart = new Chart(vnode.node, config);
-        }
-    });
-    return vnode;
-}
-
-function Card(title, children) {
-    return h("div", { class: "window card" }, [
-        h("div", { class: "title-bar" }, [
-            h("div", { class: "title-bar-text" }, text(title))
-        ]),
-        h("div", { class: "window-body" }, children),
-    ]);
-}
-
-function DailyCosts(items) {
-    items = [...items].sort((a, b) => a.date - b.date);
-    if (items.length === 0) {
-        return h("span", {}, text("No items :("));
-    }
-    const labels = items.map(i => i.date.toDateString());
-    const data = items.map(i => selectCost(i));
-    const config = {
-        type: "line",
-        data: {
-            labels,
-            datasets: [{
-                label: "Daily Costs",
-                backgroundColor: "rgb(255, 99, 132)",
-                borderColor: "rgb(255, 99, 132)",
-                data,
-            }]
-        }
-    }
-    return ChartComponent(config);
-}
-
-function DailyChart(items) {
-    items = [...items].sort((a, b) => a.date - b.date);
-    if (items.length === 0) {
-        return h("span", {}, text("No items :("));
-    }
-    const labels = [items[0].date.toDateString()];
-    const data = items.slice(1).reduce((p, n, i) => {
-        const l = items[i];
-        const sum = p[p.length - 1] + selectCost(n);
-        if (n.date.toDateString() === l.date.toDateString()) {
-            p[p.length - 1] = sum;
-        } else {
-            p.push(sum);
-            labels.push(n.date.toDateString());
-        }
-        return p;
-    }, [items[0].cost])
-    const config = {
-        type: "line",
-        data: {
-            labels,
-            datasets: [{
-                label: "Daily Totals",
-                backgroundColor: "rgb(255, 99, 132)",
-                borderColor: "rgb(255, 99, 132)",
-                data,
-            }]
-        }
-    }
-    return ChartComponent(config);
-}
-
-function MonthlyCosts(items) {
-    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-    const getMonthYear = (d) => `${d.getMonth()}/${d.getFullYear()}`;
-    items = [...items].sort((a, b) => a.date - b.date);
-    if (items.length === 0) {
-        return h("span", {}, text("No items :("));
-    }
-    const labels = [`${months[items[0].date.getMonth()]} ${items[0].date.getFullYear()}`];
-    const data = items.slice(1).reduce((p, n, i) => {
-        const l = items[i];
-        if (getMonthYear(n.date) === getMonthYear(l.date)) {
-            p[p.length - 1] += selectCost(n);
-        } else {
-            p.push(selectCost(n));
-            labels.push(`${months[n.date.getMonth()]} ${n.date.getFullYear()}`);
-        }
-        return p;
-    }, [items[0].cost])
-    const config = {
-        type: "line",
-        data: {
-            labels,
-            datasets: [{
-                label: "Monthly Totals",
-                backgroundColor: "rgb(255, 99, 132)",
-                borderColor: "rgb(255, 99, 132)",
-                data,
-            }]
-        }
-    }
-    return ChartComponent(config);
 }
 
 function BiggestIncomes(state) {
@@ -137,7 +27,7 @@ function BiggestIncomes(state) {
     return Card(
         "Biggest Incomes",
         h("ul", { id: "biggest-costs" },
-            sortedTotals.slice(0, 5).map(([k, v]) => h("li", {}, text(`$${(v / months).toFixed(2)} / month in ${k.toLocaleUpperCase()}`)))
+            sortedTotals.reverse().slice(0, 5).map(([k, v]) => h("li", {}, text(`$${(v / months).toFixed(2)} / month in ${k.toLocaleUpperCase()}`)))
         ),
     );
 }
@@ -169,29 +59,16 @@ function BiggestLocations(state) {
     );
 }
 
-function Content() {
+function Content(dispatch) {
+    const filters = Filters(dispatch);
     return function (state) {
         if (state.search === "blank")
             return h("main", {});
-        const items = selectFilteredItems(state);
-        const delta = new Date() - selectStartDate(state);
-        const total = selectFilteredTotal(state);
-        const perDay = total / (delta / (1000 * 60 * 60 * 24));
-        const perMonth = total / (delta / (1000 * 60 * 60 * 24 * 30));
         return h("main", {}, [
             h("ul", {}, [
-                h("li", {}, Card("Daily Totals", [
-                    h("span", { style: `color: ${perDay > 0 ? "green" : "red"}` }, text(`Average = ${perDay > 0 ? "+" : "-"}${perDay.toFixed(2)} / Day`)),
-                    DailyChart(items),
-                ])),
-                h("li", {}, Card("Daily Totals", [
-                    h("span", { style: `color: ${perDay > 0 ? "green" : "red"}` }, text(`Average = ${perDay > 0 ? "+" : "-"}${perDay.toFixed(2)} / Day`)),
-                    DailyCosts(items),
-                ])),
-                h("li", {}, Card("Monthly Costs", [
-                    h("span", { style: `color: ${perMonth > 0 ? "green" : "red"}` }, text(`Average = ${perMonth > 0 ? "+" : "-"}${perMonth.toFixed(2)} / Month`)),
-                    MonthlyCosts(items),
-                ])),
+                h("li", {}, filters(state)),
+                h("li", {}, MonthlySpending(state)),
+                h("li", {}, DailySpending(state)),
                 h("li", {}, BiggestCategories(state)),
                 h("li", {}, BiggestLocations(state)),
                 h("li", {}, BiggestIncomes(state)),
@@ -208,13 +85,24 @@ function Sidebar(dispatch) {
     const handleSearchInput = (e) => {
         dispatch(s => ({ ...s, search: e.target.value }));
     }
-    const filterViews = ["", " ✔️", " ✖️"];
     const handleFilterClick = (e) => {
         const d = e.target.dataset;
-        dispatch(s => icepick.setIn(s, ["filter", d.filterKey], (parseInt(d.filterValue || 0, 10) + 1) % 3));
+        const [property, value, status] = [d.filterProperty, d.filterValue, d.filterStatus];
+        const next_status = (parseInt(status, 10) + 1) % 3;
+        const k = `${property}-${value}`;
+        dispatch(s => {
+            if (next_status > 0) {
+                const f = (next_status === 1)
+                    ? { status: next_status, description: `${property} = ${value}`, fn: `(i) => i.${property} === "${value}"` }
+                    : { status: next_status, description: `${property} ≠ ${value}`, fn: `(i) => i.${property} !== "${value}"` };
+                return icepick.setIn(s, ["filters", k], f);
+            } else {
+                return icepick.unsetIn(s, ["filters", k]);
+            }
+        });
     };
     return function (state) {
-        const { search = "", filter = {} } = state;
+        const { search = "", filters = {} } = state;
         const filteredItems = selectFilteredItems(state);
         return h("aside", { class: "sidebar" }, [
             h("ul", { class: "tree-view" }, [
@@ -229,13 +117,14 @@ function Sidebar(dispatch) {
                     h("details", {}, [
                         h("summary", {}, text("Categories")),
                         h("ul", {},
-                            selectCategories(state).map(k => h("li", {
-                                key: k,
+                            selectCategories(state).map(v => h("li", {
+                                key: v,
                                 onclick: handleFilterClick,
-                                "data-filter-key": `c-${k}`,
-                                "data-filter-value": filter[`c-${k}`] || 0,
+                                "data-filter-property": `category`,
+                                "data-filter-value": `${v}`,
+                                "data-filter-status": `${filters[`category-${v}`]?.status || 0}`,
                             },
-                                text(`${k}${filterViews[filter[`c-${k}`] || 0]}`))),
+                                text(v + ["", " ✔️", " ✖️"][filters[`category-${v}`]?.status || 0]))),
                         ),
                     ]),
                     h("details", {}, [

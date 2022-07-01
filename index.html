@@ -22,7 +22,7 @@
         window._data = undefined;
 
         async function loadData() {
-            const resp = await fetch("sample.csv");
+            const resp = await fetch("ignore/finances.csv");
             if (resp.status != 200) {
                 throw new Error(`Unable to download data: ${resp.status}:${resp.statusText}`);
             }

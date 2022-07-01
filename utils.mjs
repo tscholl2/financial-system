@@ -9,6 +9,20 @@ export function memoize(f) {
     }
 }
 
+//export function map_all(arr, fn) {
+//    for (let i = 0; i < arr.length; i++) {
+//        if (!fn(arr[i], i, arr)) {
+//            return false;
+//        }
+//    }
+//    return true;
+//}
+
+export function isEmpty(obj) {
+    for (let _ in obj) return false;
+    return true;
+}
+
 export function createSelector(...selectors) {
     const resulter = selectors.pop();
     return memoize((...args) => resulter(...selectors.map(f => f(...args))));
