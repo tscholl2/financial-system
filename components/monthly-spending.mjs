@@ -12,10 +12,10 @@ const monthlyAverageSelector = createSelector(selectStartDate, selectFilteredTot
     return total / months;
 });
 
+const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const monthlyChartSelector = createSelector(selectFilteredItems, items => {
-    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
     const getMonthYear = (d) => `${months[d.getMonth()]} ${d.getFullYear()}`;
-    items = [...items].sort((a, b) => a.date - b.date);
+    items = [...items].sort((a, b) => b.date - a.date);
     if (items.length === 0) {
         return h("span", {}, text("No items :("));
     }
@@ -30,7 +30,8 @@ const monthlyChartSelector = createSelector(selectFilteredItems, items => {
         }
         return p;
     }, [items[0].cost])
-    const config = {
+    console.log("generating data: ", labels, data, items);
+    return ChartComponent({
         type: "line",
         data: {
             labels,
@@ -41,8 +42,7 @@ const monthlyChartSelector = createSelector(selectFilteredItems, items => {
                 data,
             }]
         }
-    }
-    return ChartComponent(config);
+    });
 });
 
 
@@ -50,7 +50,7 @@ export function MonthlySpending(state) {
     const chart = monthlyChartSelector(state);
     const total = monthlyAverageSelector(state);
     return Card("Monthly Spending", [
-        h("span", { style: `color: ${total > 0 ? "green" : "red"}` }, text(`Average = ${total > 0 ? "+" : "-"}${total.toFixed(2)} / Month`)),
+        h("span", { style: `color: ${total > 0 ? "green" : "red"}` }, text(`Average = ${total.toFixed(2)} / Month`)),
         chart,
     ])
 }

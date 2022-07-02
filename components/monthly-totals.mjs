@@ -15,7 +15,7 @@ const monthlyAverageSelector = createSelector(selectStartDate, selectFilteredTot
 const monthlyChartSelector = createSelector(selectFilteredItems, items => {
     const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
     const getMonthYear = (d) => `${months[d.getMonth()]} ${d.getFullYear()}`;
-    items = [...items].sort((a, b) => a.date - b.date);
+    items = [...items].sort((a, b) => b.date - a.date);
     if (items.length === 0) {
         return h("span", {}, text("No items :("));
     }
@@ -51,7 +51,7 @@ export function MonthlyTotal(state) {
     const chart = monthlyChartSelector(state);
     const total = monthlyAverageSelector(state);
     return Card("Monthly Totals", [
-        h("span", { style: `color: ${total > 0 ? "green" : "red"}` }, text(`Average = ${total > 0 ? "+" : "-"}${total.toFixed(2)} / Month`)),
+        h("span", { style: `color: ${total > 0 ? "green" : "red"}` }, text(`Average = ${total.toFixed(2)} / Month`)),
         chart,
     ])
 }

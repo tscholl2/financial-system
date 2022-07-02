@@ -11,8 +11,8 @@ export function Filters(dispatch) {
         const filters = selectFilters(state);
         return Card("Filters",
             isEmpty(filters) ? text("No filters activated.") :
-                h("ul", {}, Object.values(filters).map(f =>
-                    h("li", {}, h("button", { onclick: handleClick }, text(f.description)))
+                h("ul", {}, Object.keys(filters).map(f =>
+                    h("li", {}, h("button", { onclick: handleClick }, text(f)))
                 ))
         );
     }

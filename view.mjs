@@ -86,13 +86,27 @@ function Sidebar(dispatch) {
                     h("details", {}, [
                         h("summary", {}, text("Locations")),
                         h("ul", {},
-                            selectLocations(state).map(c => h("li", { key: c }, text(c))),
+                            selectLocations(state).map(v => h("li", {
+                                key: v,
+                                onclick: handleFilterClick,
+                                "data-filter-property": `location`,
+                                "data-filter-value": `${v}`,
+                                "data-filter-status": `${filters[`location-${v}`]?.status || 0}`,
+                            },
+                                text(v + ["", " ✔️", " ✖️"][filters[`location-${v}`]?.status || 0]))),
                         ),
                     ]),
                     h("details", {}, [
                         h("summary", {}, text("Descriptions")),
                         h("ul", {},
-                            selectDescriptions(state).map(c => h("li", { key: c }, text(c))),
+                            selectDescriptions(state).map(v => h("li", {
+                                key: v,
+                                onclick: handleFilterClick,
+                                "data-filter-property": `description`,
+                                "data-filter-value": `${v}`,
+                                "data-filter-status": `${filters[`description-${v}`]?.status || 0}`,
+                            },
+                                text(v + ["", " ✔️", " ✖️"][filters[`description-${v}`]?.status || 0]))),
                         ),
                     ]),
                     h("details", {}, [

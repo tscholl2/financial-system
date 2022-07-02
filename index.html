@@ -68,7 +68,7 @@
         }
 
         async function start() {
-            const c = new Controller(icepick.freeze({ initializing: true }));
+            const c = new Controller(icepick.freeze({ initializing: true, filters: { "TODO": { fn: "(i) => i.category === \"tools\"" } } }));
             const app = App(c.dispatch);
             c.addListener(s => patch(document.getElementById("app"), app(s)));
             c.addListener(s => window._state = s);

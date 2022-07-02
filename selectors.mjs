@@ -1,4 +1,4 @@
-import { createSelector, memoize } from "./utils.mjs";
+import { createSelector, isEmpty, memoize } from "./utils.mjs";
 import Fuse from "https://cdn.jsdelivr.net/npm/fuse.js@6.5.3/dist/fuse.esm.js";
 
 /*
@@ -19,28 +19,20 @@ Filter: {
 const filterToFunction = memoize((s) => eval(s));
 
 export const selectItems = ({ items = [] }) => items;
-
 export const selectSearch = ({ search = "" }) => search;
-
 export const selectFilters = ({ filters = {} }) => filters;
-
-function searchItems(items = [], search = "") {
-    return search === "" ? items : new Fuse(items, {
-        keys: ["item", "location", "notes"]
-    }).search(search).map(a => a.item)
-}
-
-
-function filterItems(items = [], filters = {}) {
-    return items.filter(i => Object.values(filters).reduce((p, n) => p || filterToFunction(n.fn)(i), true));
-}
 
 export const selectFilteredItems = createSelector(
     selectItems,
     selectSearch,
     selectFilters,
-    (items, search, filters) => searchItems(filterItems(items, filters), search)
-);
+    (items, search, filters) => {
+        items = search === "" ? items : new Fuse(items, {
+            keys: ["item", "location", "notes"]
+        }).search(search).map(a => a.item);
+        items = isEmpty(filters) ? items : items.filter(i => Object.values(filters).reduce((p, n) => p || filterToFunction(n.fn)(i), false));
+        return items;
+    });
 
 export const selectCost = (item) => item.category === "income" ? item.cost : -item.cost;
 
