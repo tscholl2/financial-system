@@ -1,10 +1,10 @@
 //import { h,text } from "https://unpkg.com/superfine@8.2.0/index.js";
 import { h, text } from "./vendor/superfine.js";
-import { selectCategories, selectDescriptions, selectFilteredItems, selectLocations, selectStartDate, selectCost, selectTotalsByCategory, selectTotalsByLocation, selectItems } from "./selectors.mjs";
-import { DailySpending } from "./components/daily-spending.mjs";
+import { selectCategories, selectDescriptions, selectFilteredItems, selectLocations, selectItems } from "./selectors.mjs";
 import { MonthlySpending } from "./components/monthly-spending.mjs";
-import { Card } from "./components/common.mjs";
 import { Filters } from "./components/filters.mjs";
+import { MonthlyTotal } from "./components/monthly-totals.mjs";
+import { TopCategories, TopIncomes, TopLocations } from "./components/top-things.mjs";
 
 
 function Navbar() {
@@ -13,50 +13,6 @@ function Navbar() {
             h("div", { class: "title-bar-text" }, text("Fin$")),
         ]);
     }
-}
-
-function BiggestIncomes(state) {
-    const incomeTotals = selectItems(state).filter(i => i.category === "income").reduce((p, n) => {
-        p[n.location] = (p[n.location] || 0) + selectCost(n);
-        return p;
-    }, {})
-    const sortedTotals = Object.entries(incomeTotals).sort((a, b) => a[1] - b[1]);
-    const start = selectStartDate(state);
-    const end = new Date();
-    const months = ((end - start) / (1000 * 60 * 60 * 24 * 30));
-    return Card(
-        "Biggest Incomes",
-        h("ul", { id: "biggest-costs" },
-            sortedTotals.reverse().slice(0, 5).map(([k, v]) => h("li", {}, text(`$${(v / months).toFixed(2)} / month in ${k.toLocaleUpperCase()}`)))
-        ),
-    );
-}
-function BiggestCategories(state) {
-    const categoryTotals = selectTotalsByCategory(state);
-    const sortedTotals = Object.entries(categoryTotals).sort((a, b) => a[1] - b[1]);
-    const start = selectStartDate(state);
-    const end = new Date();
-    const months = ((end - start) / (1000 * 60 * 60 * 24 * 30));
-    return Card(
-        "Biggest Categories",
-        h("ul", { id: "biggest-costs" },
-            sortedTotals.slice(0, 5).map(([k, v]) => h("li", {}, text(`$${(v / months).toFixed(2)} / month in ${k.toLocaleUpperCase()}`)))
-        ),
-    );
-}
-
-function BiggestLocations(state) {
-    const locationTotals = selectTotalsByLocation(state);
-    const sortedTotals = Object.entries(locationTotals).sort((a, b) => a[1] - b[1]);
-    const start = selectStartDate(state);
-    const end = new Date();
-    const months = ((end - start) / (1000 * 60 * 60 * 24 * 30));
-    return Card(
-        "Biggest Locations",
-        h("ul", { id: "biggest-costs" },
-            sortedTotals.slice(0, 5).map(([k, v]) => h("li", {}, text(`$${(v / months).toFixed(2)} / month in ${k.toLocaleUpperCase()}`)))
-        ),
-    );
 }
 
 function Content(dispatch) {
@@ -68,10 +24,10 @@ function Content(dispatch) {
             h("ul", {}, [
                 h("li", {}, filters(state)),
                 h("li", {}, MonthlySpending(state)),
-                h("li", {}, DailySpending(state)),
-                h("li", {}, BiggestCategories(state)),
-                h("li", {}, BiggestLocations(state)),
-                h("li", {}, BiggestIncomes(state)),
+                h("li", {}, MonthlyTotal(state)),
+                h("li", {}, TopCategories(state)),
+                h("li", {}, TopLocations(state)),
+                h("li", {}, TopIncomes(state)),
             ])
         ]);
     }

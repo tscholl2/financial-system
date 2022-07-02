@@ -22,10 +22,11 @@ const monthlyChartSelector = createSelector(selectFilteredItems, items => {
     const labels = [getMonthYear(items[0].date)];
     const data = items.slice(1).reduce((p, n, i) => {
         const l = items[i];
+        const sum = p[p.length - 1] + selectCost(n);
         if (getMonthYear(n.date) === getMonthYear(l.date)) {
-            p[p.length - 1] += selectCost(n);
+            p[p.length - 1] = sum;
         } else {
-            p.push(selectCost(n));
+            p.push(sum);
             labels.push(getMonthYear(n.date));
         }
         return p;
@@ -35,7 +36,7 @@ const monthlyChartSelector = createSelector(selectFilteredItems, items => {
         data: {
             labels,
             datasets: [{
-                label: "Monthly Costs",
+                label: "Monthly Totals",
                 backgroundColor: "#690bc0",
                 borderColor: "#690bc0",
                 data,
@@ -46,10 +47,10 @@ const monthlyChartSelector = createSelector(selectFilteredItems, items => {
 });
 
 
-export function MonthlySpending(state) {
+export function MonthlyTotal(state) {
     const chart = monthlyChartSelector(state);
     const total = monthlyAverageSelector(state);
-    return Card("Monthly Spending", [
+    return Card("Monthly Totals", [
         h("span", { style: `color: ${total > 0 ? "green" : "red"}` }, text(`Average = ${total > 0 ? "+" : "-"}${total.toFixed(2)} / Month`)),
         chart,
     ])

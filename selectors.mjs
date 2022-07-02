@@ -32,7 +32,7 @@ function searchItems(items = [], search = "") {
 
 
 function filterItems(items = [], filters = {}) {
-    return items.filter(item => Object.values(filters).reduce((p, n) => p && filterToFunction(n.fn)(item), true));
+    return items.filter(i => Object.values(filters).reduce((p, n) => p || filterToFunction(n.fn)(i), true));
 }
 
 export const selectFilteredItems = createSelector(
@@ -62,20 +62,6 @@ export const selectDescriptions = createSelector(
     selectItems,
     createSelectBy("item"),
 );
-
-const createSelectTotalsByProperty = property => createSelector(
-    selectItems,
-    items => items.reduce((p, n) => {
-        p[n[property]] = (p[n[property]] || 0) + selectCost(n);
-        return p;
-    }, {})
-);
-
-export const selectTotalsByCategory = createSelectTotalsByProperty("category");
-
-export const selectTotalsByLocation = createSelectTotalsByProperty("location");
-
-export const selectTotalsByDescription = createSelectTotalsByProperty("item");
 
 export const selectTotal = createSelector(
     selectItems,
