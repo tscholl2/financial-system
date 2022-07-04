@@ -5,14 +5,15 @@ import { Card } from "./common.mjs";
 
 export function Filters(dispatch) {
     const handleClick = (e) => {
-        // TODO
+        const key = e.target.dataset.key;
+        dispatch(s => icepick.unsetIn(s, ["filters", key]));
     }
     return function (state) {
         const filters = selectFilters(state);
         return Card("Filters",
             isEmpty(filters) ? text("No filters activated.") :
-                h("ul", {}, Object.keys(filters).map(f =>
-                    h("li", {}, h("button", { onclick: handleClick }, text(f)))
+                h("ul", { id: "filters" }, Object.entries(filters).map(([k, { description }]) =>
+                    h("li", {}, h("button", { onclick: handleClick, ["data-key"]: k }, text(description)))
                 ))
         );
     }

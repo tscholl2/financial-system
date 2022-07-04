@@ -30,7 +30,6 @@ const monthlyChartSelector = createSelector(selectFilteredItems, items => {
         }
         return p;
     }, [items[0].cost])
-    console.log("generating data: ", labels, data, items);
     return ChartComponent({
         type: "line",
         data: {

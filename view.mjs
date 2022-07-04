@@ -5,6 +5,7 @@ import { MonthlySpending } from "./components/monthly-spending.mjs";
 import { Filters } from "./components/filters.mjs";
 import { MonthlyTotal } from "./components/monthly-totals.mjs";
 import { TopCategories, TopIncomes, TopLocations } from "./components/top-things.mjs";
+import { Items } from "./components/items.mjs";
 
 
 function Navbar() {
@@ -28,13 +29,10 @@ function Content(dispatch) {
                 h("li", {}, TopCategories(state)),
                 h("li", {}, TopLocations(state)),
                 h("li", {}, TopIncomes(state)),
+                h("li", {}, Items(state)),
             ])
         ]);
     }
-}
-
-function Item(item) {
-    return text(`${item.date.toDateString()}: $${item.cost} ${item.item}${item.notes ? ` ${item.notes}` : ""}`);
 }
 
 function Sidebar(dispatch) {
@@ -107,12 +105,6 @@ function Sidebar(dispatch) {
                                 "data-filter-status": `${filters[`description-${v}`]?.status || 0}`,
                             },
                                 text(v + ["", " ✔️", " ✖️"][filters[`description-${v}`]?.status || 0]))),
-                        ),
-                    ]),
-                    h("details", {}, [
-                        h("summary", {}, text("Items")),
-                        h("ul", {},
-                            selectItems(state).map(c => h("li", { key: c, class: filteredItems.indexOf(c) < 0 ? "filtered" : "" }, Item(c))),
                         ),
                     ]),
                 ]),

@@ -69,3 +69,30 @@ aside .filtered {
     font-size: 20px;
     margin: 10px;
 }
+
+#filters button {
+    cursor: pointer;
+}
+
+#items-table {
+    display: block;
+    height: 200px;
+    overflow-y: auto;
+    text-align: center;
+}
+
+#items-table>tr>th {
+    border: 1px solid;
+}
+
+#items-table>tr>td {
+    border: 1px solid;
+}
+
+#items-table>tr:nth-child(2n) {
+    background: #0000;
+}
+
+#items-table>tr:nth-child(2n+1) {
+    background: rgb(255, 255, 255, 0.5);
+}
